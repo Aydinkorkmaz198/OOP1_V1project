@@ -4,6 +4,7 @@ import app.exception.InvalidCellException;
 import app.model.Cell;
 import app.model.DoubleCell;
 import app.model.EmptyCell;
+import app.model.FormulaCell;
 import app.model.IntegerCell;
 import app.model.StringCell;
 
@@ -15,6 +16,11 @@ public class CellFactory {
         // Empty cell
         if (trimmed.isEmpty()) {
             return new EmptyCell();
+        }
+
+        // Formula cell
+        if (trimmed.startsWith("=")) {
+            return new FormulaCell(trimmed);
         }
 
         // String cell
@@ -49,10 +55,10 @@ public class CellFactory {
     }
 
     private static String parseString(String text) {
-        // Remove the outer quotes first
+        // Remove outer quotes
         String inner = text.substring(1, text.length() - 1);
 
-        // Support for escaped quotes and backslashes
+        // Support escaped quote and backslash
         inner = inner.replace("\\\"", "\"");
         inner = inner.replace("\\\\", "\\");
 

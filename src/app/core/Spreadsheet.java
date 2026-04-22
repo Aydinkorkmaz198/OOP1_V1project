@@ -3,6 +3,7 @@ package app.core;
 import app.exception.InvalidCellException;
 import app.factory.CellFactory;
 import app.model.Cell;
+import app.model.EmptyCell;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -10,7 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-// Basic spreadsheet structure for the first project stage
+// Main table structure for the spreadsheet
 public class Spreadsheet {
     private List<List<Cell>> rows;
 
@@ -27,7 +28,6 @@ public class Spreadsheet {
 
             while ((line = reader.readLine()) != null) {
                 rowNumber++;
-
                 List<Cell> row = parseLine(line, rowNumber);
                 rows.add(row);
             }
@@ -65,7 +65,7 @@ public class Spreadsheet {
                 String value = "";
 
                 if (col < row.size()) {
-                    value = row.get(col).getDisplayValue();
+                    value = row.get(col).getDisplayValue(this);
                 }
 
                 System.out.printf("%-" + columnWidths[col] + "s", value);
@@ -76,6 +76,25 @@ public class Spreadsheet {
             }
             System.out.println();
         }
+    }
+
+    public Cell getCell(int row, int col) {
+        // Table references start from 1
+        int rowIndex = row - 1;
+        int colIndex = col - 1;
+
+        // Out-of-range cells are treated as empty
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return new EmptyCell();
+        }
+
+        List<Cell> targetRow = rows.get(rowIndex);
+
+        if (colIndex < 0 || colIndex >= targetRow.size()) {
+            return new EmptyCell();
+        }
+
+        return targetRow.get(colIndex);
     }
 
     private int getMaxColumnCount() {
@@ -94,15 +113,20 @@ public class Spreadsheet {
         int[] widths = new int[maxColumns];
 
         for (List<Cell> row : rows) {
-            for (int col = 0; col < row.size(); col++) {
-                String value = row.get(col).getDisplayValue();
+            for (int col = 0; col < maxColumns; col++) {
+                String value = "";
+
+                if (col < row.size()) {
+                    value = row.get(col).getDisplayValue(this);
+                }
+
                 if (value.length() > widths[col]) {
                     widths[col] = value.length();
                 }
             }
         }
 
-        // Prevent zero width columns
+        // Prevent zero-width columns
         for (int i = 0; i < widths.length; i++) {
             if (widths[i] == 0) {
                 widths[i] = 1;

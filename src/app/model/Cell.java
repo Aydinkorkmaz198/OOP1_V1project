@@ -1,5 +1,8 @@
 package app.model;
 
+import app.core.Spreadsheet;
+import app.exception.EvaluationException;
+
 public abstract class Cell {
     protected String rawContent;
 
@@ -11,6 +14,9 @@ public abstract class Cell {
         return rawContent;
     }
 
-    // Returns the text that will be shown on screen
-    public abstract String getDisplayValue();
+    // Returns the text shown in the table
+    public abstract String getDisplayValue(Spreadsheet sheet);
+
+    // Returns numeric value for formulas
+    public abstract double getNumericValue(Spreadsheet sheet) throws EvaluationException;
 }

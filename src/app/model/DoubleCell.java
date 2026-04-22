@@ -1,5 +1,8 @@
 package app.model;
 
+import app.core.Spreadsheet;
+import app.exception.EvaluationException;
+
 public class DoubleCell extends Cell {
     private double value;
 
@@ -13,7 +16,12 @@ public class DoubleCell extends Cell {
     }
 
     @Override
-    public String getDisplayValue() {
+    public String getDisplayValue(Spreadsheet sheet) {
         return String.valueOf(value);
+    }
+
+    @Override
+    public double getNumericValue(Spreadsheet sheet) throws EvaluationException {
+        return value;
     }
 }
