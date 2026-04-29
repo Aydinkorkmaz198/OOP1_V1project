@@ -58,6 +58,12 @@ public class Spreadsheet {
 
     public void printTable() {
         int maxColumns = getMaxColumnCount();
+
+        if (maxColumns == 0) {
+            System.out.println("Table is empty.");
+            return;
+        }
+
         int[] columnWidths = getColumnWidths(maxColumns);
 
         for (List<Cell> row : rows) {
@@ -76,6 +82,29 @@ public class Spreadsheet {
             }
             System.out.println();
         }
+    }
+
+    public void editCell(int rowNumber, int colNumber, String newValue) throws InvalidCellException {
+        if (rowNumber < 1 || colNumber < 1) {
+            throw new InvalidCellException("Row and column numbers must start from 1.");
+        }
+
+        // Create the new cell first. If it is invalid, the table will not be changed.
+        Cell newCell = CellFactory.createCell(newValue);
+
+        // Add missing rows if needed
+        while (rows.size() < rowNumber) {
+            rows.add(new ArrayList<>());
+        }
+
+        List<Cell> targetRow = rows.get(rowNumber - 1);
+
+        // Add missing columns as empty cells if needed
+        while (targetRow.size() < colNumber) {
+            targetRow.add(new EmptyCell());
+        }
+
+        targetRow.set(colNumber - 1, newCell);
     }
 
     public Cell getCell(int row, int col) {
