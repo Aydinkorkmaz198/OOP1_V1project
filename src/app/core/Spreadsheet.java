@@ -5,9 +5,7 @@ import app.factory.CellFactory;
 import app.model.Cell;
 import app.model.EmptyCell;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,6 +54,34 @@ public class Spreadsheet {
         return row;
     }
 
+    public void saveToFile(String fileName) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
+            for (int i = 0; i < rows.size(); i++) {
+                List<Cell> row = rows.get(i);
+
+                for (int j = 0; j < row.size(); j++) {
+                    writer.write(row.get(j).getRawContent());
+
+                    if (j < row.size() - 1) {
+                        writer.write(",");
+                    }
+                }
+
+                if (i < rows.size() - 1) {
+                    writer.newLine();
+                }
+            }
+        }
+    }
+
+    public void clear() {
+        rows.clear();
+    }
+
+    public boolean isEmpty() {
+        return rows.isEmpty();
+    }
+
     public void printTable() {
         int maxColumns = getMaxColumnCount();
 
@@ -89,17 +115,17 @@ public class Spreadsheet {
             throw new InvalidCellException("Row and column numbers must start from 1.");
         }
 
-        // Create the new cell first. If it is invalid, the table will not be changed.
+        // Validate first. If invalid, the table is not changed.
         Cell newCell = CellFactory.createCell(newValue);
 
-        // Add missing rows if needed
+        // Add missing rows
         while (rows.size() < rowNumber) {
             rows.add(new ArrayList<>());
         }
 
         List<Cell> targetRow = rows.get(rowNumber - 1);
 
-        // Add missing columns as empty cells if needed
+        // Add missing columns as empty cells
         while (targetRow.size() < colNumber) {
             targetRow.add(new EmptyCell());
         }
@@ -108,11 +134,10 @@ public class Spreadsheet {
     }
 
     public Cell getCell(int row, int col) {
-        // Table references start from 1
         int rowIndex = row - 1;
         int colIndex = col - 1;
 
-        // Out-of-range cells are treated as empty
+        // Out-of-range references are treated as empty cells
         if (rowIndex < 0 || rowIndex >= rows.size()) {
             return new EmptyCell();
         }

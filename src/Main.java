@@ -11,19 +11,19 @@ public class Main {
         Spreadsheet sheet = new Spreadsheet();
         Scanner scanner = new Scanner(System.in);
 
-        String fileName = "input.txt";
+        String currentFileName = "input.txt";
 
         try {
-            sheet.loadFromFile(fileName);
-            System.out.println("Table loaded successfully.");
-            System.out.println("Type 'help' to see available commands.\n");
+            sheet.loadFromFile(currentFileName);
+            System.out.println("Table loaded successfully from " + currentFileName);
         } catch (InvalidCellException e) {
             System.out.println("Input error: " + e.getMessage());
-            return;
         } catch (IOException e) {
-            System.out.println("File error: " + e.getMessage());
-            return;
+            System.out.println("File could not be loaded: " + e.getMessage());
+            currentFileName = null;
         }
+
+        System.out.println("Type 'help' to see available commands.\n");
 
         boolean running = true;
 
@@ -40,6 +40,20 @@ public class Main {
             } else if (commandLine.equalsIgnoreCase("exit")) {
                 running = false;
 
+            } else if (commandLine.equalsIgnoreCase("close")) {
+                sheet.clear();
+                currentFileName = null;
+                System.out.println("File closed.");
+
+            } else if (commandLine.startsWith("open ")) {
+                currentFileName = handleOpenCommand(sheet, commandLine);
+
+            } else if (commandLine.equalsIgnoreCase("save")) {
+                handleSaveCommand(sheet, currentFileName);
+
+            } else if (commandLine.startsWith("save as ")) {
+                currentFileName = handleSaveAsCommand(sheet, commandLine);
+
             } else if (commandLine.startsWith("edit")) {
                 handleEditCommand(sheet, commandLine);
 
@@ -52,6 +66,63 @@ public class Main {
         }
 
         System.out.println("Program closed.");
+    }
+
+    private static String handleOpenCommand(Spreadsheet sheet, String commandLine) {
+        String[] parts = commandLine.split("\\s+", 2);
+
+        if (parts.length < 2) {
+            System.out.println("Invalid open command. Example: open input.txt");
+            return null;
+        }
+
+        String fileName = parts[1];
+
+        try {
+            sheet.loadFromFile(fileName);
+            System.out.println("File opened: " + fileName);
+            return fileName;
+        } catch (InvalidCellException e) {
+            System.out.println("Input error: " + e.getMessage());
+        } catch (IOException e) {
+            System.out.println("File error: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    private static void handleSaveCommand(Spreadsheet sheet, String currentFileName) {
+        if (currentFileName == null) {
+            System.out.println("No active file. Use 'save as filename.txt' first.");
+            return;
+        }
+
+        try {
+            sheet.saveToFile(currentFileName);
+            System.out.println("File saved: " + currentFileName);
+        } catch (IOException e) {
+            System.out.println("Save error: " + e.getMessage());
+        }
+    }
+
+    private static String handleSaveAsCommand(Spreadsheet sheet, String commandLine) {
+        String[] parts = commandLine.split("\\s+", 3);
+
+        if (parts.length < 3) {
+            System.out.println("Invalid save as command. Example: save as output.txt");
+            return null;
+        }
+
+        String fileName = parts[2];
+
+        try {
+            sheet.saveToFile(fileName);
+            System.out.println("File saved as: " + fileName);
+            return fileName;
+        } catch (IOException e) {
+            System.out.println("Save as error: " + e.getMessage());
+            return null;
+        }
     }
 
     private static void handleEditCommand(Spreadsheet sheet, String commandLine) {
@@ -81,14 +152,22 @@ public class Main {
 
     private static void printHelp() {
         System.out.println("Available commands:");
-        System.out.println("print                  - Displays the table");
-        System.out.println("edit row col value     - Changes a cell value");
-        System.out.println("help                   - Shows available commands");
-        System.out.println("exit                   - Closes the program");
+        System.out.println("open filename.txt       - Opens a file");
+        System.out.println("close                   - Closes the current table");
+        System.out.println("save                    - Saves the current file");
+        System.out.println("save as filename.txt    - Saves the table into a new file");
+        System.out.println("print                   - Displays the table");
+        System.out.println("edit row col value      - Changes a cell value");
+        System.out.println("help                    - Shows available commands");
+        System.out.println("exit                    - Closes the program");
         System.out.println();
         System.out.println("Examples:");
+        System.out.println("open input.txt");
+        System.out.println("print");
         System.out.println("edit 1 2 100");
         System.out.println("edit 2 3 \"Hello\"");
         System.out.println("edit 3 1 =R1C1+R1C2");
+        System.out.println("save");
+        System.out.println("save as output.txt");
     }
 }
