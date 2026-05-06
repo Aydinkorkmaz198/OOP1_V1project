@@ -35,7 +35,7 @@ public class Spreadsheet {
     private List<Cell> parseLine(String line, int rowNumber) throws InvalidCellException {
         List<Cell> row = new ArrayList<>();
 
-        // Keep trailing empty cells
+        // Keeps trailing empty cells
         String[] parts = line.split(",", -1);
 
         for (int col = 0; col < parts.length; col++) {
@@ -149,6 +149,12 @@ public class Spreadsheet {
         }
 
         return targetRow.get(colIndex);
+    }
+
+    // Returns the original raw content of a cell
+    public String getCellRawContent(int row, int col) {
+        Cell cell = getCell(row, col);
+        return cell.getRawContent();
     }
 
     private int getMaxColumnCount() {
