@@ -17,7 +17,7 @@ public class FormulaCell extends Cell {
         try {
             double result = evaluate(sheet, new HashSet<>());
 
-            // Remove unnecessary decimal part
+            // Show whole numbers without decimal part
             if (result == (long) result) {
                 return String.valueOf((long) result);
             }
@@ -34,131 +34,258 @@ public class FormulaCell extends Cell {
         return evaluate(sheet, new HashSet<>());
     }
 
-    // Main recursive evaluation method
-    private double evaluate(Spreadsheet sheet, Set<String> visited)
-            throws EvaluationException {
-
-        String expression = rawContent.substring(1).trim();
-
-        char operator = findMainOperator(expression);
-
-        if (operator == '\0') {
-            return resolveOperand(expression, sheet, visited);
+    private double evaluate(Spreadsheet sheet, Set<String> visited) throws EvaluationException {
+        if (!rawContent.trim().startsWith("=")) {
+            throw new EvaluationException("Formula must start with '='");
         }
 
-        int operatorIndex = findOperatorIndex(expression, operator);
+        String expression = rawContent.trim().substring(1);
+        Parser parser = new Parser(expression, sheet, visited);
 
-        String leftText = expression.substring(0, operatorIndex).trim();
-        String rightText = expression.substring(operatorIndex + 1).trim();
+        double result = parser.parseExpression();
 
-        double leftValue = resolveOperand(leftText, sheet, visited);
-        double rightValue = resolveOperand(rightText, sheet, visited);
-
-        switch (operator) {
-            case '+':
-                return leftValue + rightValue;
-
-            case '-':
-                return leftValue - rightValue;
-
-            case '*':
-                return leftValue * rightValue;
-
-            case '/':
-                if (rightValue == 0) {
-                    throw new EvaluationException("Division by zero");
-                }
-
-                return leftValue / rightValue;
-
-            case '^':
-                return Math.pow(leftValue, rightValue);
-
-            default:
-                throw new EvaluationException("Unknown operator");
+        parser.skipSpaces();
+        if (!parser.isAtEnd()) {
+            throw new EvaluationException("Unexpected character in formula");
         }
+
+        return result;
     }
 
-    private double resolveOperand(String operand,
-                                  Spreadsheet sheet,
-                                  Set<String> visited)
-            throws EvaluationException {
+    private class Parser {
+        private String expression;
+        private Spreadsheet sheet;
+        private Set<String> visited;
+        private int position;
 
-        // Integer
-        if (operand.matches("[+-]?\\d+")) {
-            return Integer.parseInt(operand);
+        public Parser(String expression, Spreadsheet sheet, Set<String> visited) {
+            this.expression = expression;
+            this.sheet = sheet;
+            this.visited = visited;
+            this.position = 0;
         }
 
-        // Double
-        if (operand.matches("[+-]?\\d+\\.\\d+")) {
-            return Double.parseDouble(operand);
+        // Handles + and -
+        public double parseExpression() throws EvaluationException {
+            double value = parseTerm();
+
+            while (true) {
+                skipSpaces();
+
+                if (match('+')) {
+                    value += parseTerm();
+                } else if (match('-')) {
+                    value -= parseTerm();
+                } else {
+                    break;
+                }
+            }
+
+            return value;
         }
 
-        // Cell reference
-        if (operand.matches("R\\d+C\\d+")) {
+        // Handles * and /
+        private double parseTerm() throws EvaluationException {
+            double value = parsePower();
 
-            if (visited.contains(operand)) {
+            while (true) {
+                skipSpaces();
+
+                if (match('*')) {
+                    value *= parsePower();
+                } else if (match('/')) {
+                    double divisor = parsePower();
+
+                    if (divisor == 0) {
+                        throw new EvaluationException("Division by zero");
+                    }
+
+                    value /= divisor;
+                } else {
+                    break;
+                }
+            }
+
+            return value;
+        }
+
+        // Handles ^
+        private double parsePower() throws EvaluationException {
+            double value = parseUnary();
+
+            skipSpaces();
+
+            if (match('^')) {
+                double exponent = parsePower();
+                value = Math.pow(value, exponent);
+            }
+
+            return value;
+        }
+
+        // Handles unary + and -
+        private double parseUnary() throws EvaluationException {
+            skipSpaces();
+
+            if (match('+')) {
+                return parseUnary();
+            }
+
+            if (match('-')) {
+                return -parseUnary();
+            }
+
+            return parsePrimary();
+        }
+
+        // Handles numbers, cell references, and parentheses
+        private double parsePrimary() throws EvaluationException {
+            skipSpaces();
+
+            if (match('(')) {
+                double value = parseExpression();
+
+                skipSpaces();
+
+                if (!match(')')) {
+                    throw new EvaluationException("Missing closing parenthesis");
+                }
+
+                return value;
+            }
+
+            if (isDigit(peek())) {
+                return parseNumber();
+            }
+
+            if (peek() == 'R') {
+                return parseCellReference();
+            }
+
+            throw new EvaluationException("Invalid formula element");
+        }
+
+        private double parseNumber() throws EvaluationException {
+            skipSpaces();
+
+            int start = position;
+            boolean hasDot = false;
+
+            while (!isAtEndRaw() && (isDigit(peek()) || peek() == '.')) {
+                if (peek() == '.') {
+                    if (hasDot) {
+                        throw new EvaluationException("Invalid number");
+                    }
+                    hasDot = true;
+                }
+                position++;
+            }
+
+            String numberText = expression.substring(start, position);
+
+            try {
+                return Double.parseDouble(numberText);
+            } catch (NumberFormatException e) {
+                throw new EvaluationException("Invalid number");
+            }
+        }
+
+        private double parseCellReference() throws EvaluationException {
+            skipSpaces();
+
+            int start = position;
+
+            if (!match('R')) {
+                throw new EvaluationException("Invalid cell reference");
+            }
+
+            int rowStart = position;
+
+            while (!isAtEndRaw() && isDigit(peek())) {
+                position++;
+            }
+
+            if (rowStart == position) {
+                throw new EvaluationException("Invalid row number");
+            }
+
+            if (!match('C')) {
+                throw new EvaluationException("Invalid cell reference");
+            }
+
+            int colStart = position;
+
+            while (!isAtEndRaw() && isDigit(peek())) {
+                position++;
+            }
+
+            if (colStart == position) {
+                throw new EvaluationException("Invalid column number");
+            }
+
+            String reference = expression.substring(start, position);
+
+            if (visited.contains(reference)) {
                 throw new EvaluationException("Circular reference");
             }
 
-            visited.add(operand);
+            visited.add(reference);
 
-            int cIndex = operand.indexOf('C');
-
-            int row = Integer.parseInt(operand.substring(1, cIndex));
-            int col = Integer.parseInt(operand.substring(cIndex + 1));
+            int row = Integer.parseInt(expression.substring(rowStart, colStart - 1));
+            int col = Integer.parseInt(expression.substring(colStart, position));
 
             Cell referencedCell = sheet.getCell(row, col);
 
             double value;
 
             if (referencedCell instanceof FormulaCell) {
-
-                // Recursive formula evaluation
-                value = ((FormulaCell) referencedCell)
-                        .evaluate(sheet, visited);
-
+                value = ((FormulaCell) referencedCell).evaluate(sheet, visited);
             } else {
                 value = referencedCell.getNumericValue(sheet);
             }
 
-            visited.remove(operand);
+            visited.remove(reference);
 
             return value;
         }
 
-        throw new EvaluationException("Invalid operand");
-    }
+        private boolean match(char expected) {
+            skipSpaces();
 
-    private char findMainOperator(String expression) {
+            if (!isAtEndRaw() && expression.charAt(position) == expected) {
+                position++;
+                return true;
+            }
 
-        // Skip first char to allow negative numbers
-        for (int i = 1; i < expression.length(); i++) {
+            return false;
+        }
 
-            char ch = expression.charAt(i);
+        private char peek() {
+            if (isAtEndRaw()) {
+                return '\0';
+            }
 
-            if (ch == '+' ||
-                    ch == '-' ||
-                    ch == '*' ||
-                    ch == '/' ||
-                    ch == '^') {
+            return expression.charAt(position);
+        }
 
-                return ch;
+        // Skips spaces without calling isAtEnd()
+        private void skipSpaces() {
+            while (!isAtEndRaw() && Character.isWhitespace(expression.charAt(position))) {
+                position++;
             }
         }
 
-        return '\0';
-    }
-
-    private int findOperatorIndex(String expression, char operator) {
-
-        for (int i = 1; i < expression.length(); i++) {
-
-            if (expression.charAt(i) == operator) {
-                return i;
-            }
+        public boolean isAtEnd() {
+            skipSpaces();
+            return position >= expression.length();
         }
 
-        return -1;
+        private boolean isAtEndRaw() {
+            return position >= expression.length();
+        }
+
+        private boolean isDigit(char ch) {
+            return ch >= '0' && ch <= '9';
+        }
     }
 }
