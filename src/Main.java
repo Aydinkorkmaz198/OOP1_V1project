@@ -46,16 +46,19 @@ public class Main {
                 System.out.println("File closed.");
 
             } else if (commandLine.startsWith("open ")) {
-                currentFileName = handleOpenCommand(sheet, commandLine);
+                currentFileName = handleOpenCommand(sheet, commandLine, currentFileName);
 
             } else if (commandLine.equalsIgnoreCase("save")) {
                 handleSaveCommand(sheet, currentFileName);
 
             } else if (commandLine.startsWith("save as ")) {
-                currentFileName = handleSaveAsCommand(sheet, commandLine);
+                currentFileName = handleSaveAsCommand(sheet, commandLine, currentFileName);
 
             } else if (commandLine.startsWith("edit")) {
                 handleEditCommand(sheet, commandLine);
+
+            } else if (commandLine.startsWith("raw")) {
+                handleRawCommand(sheet, commandLine);
 
             } else if (commandLine.isEmpty()) {
                 // Ignore empty command
@@ -68,12 +71,12 @@ public class Main {
         System.out.println("Program closed.");
     }
 
-    private static String handleOpenCommand(Spreadsheet sheet, String commandLine) {
+    private static String handleOpenCommand(Spreadsheet sheet, String commandLine, String oldFileName) {
         String[] parts = commandLine.split("\\s+", 2);
 
         if (parts.length < 2) {
             System.out.println("Invalid open command. Example: open input.txt");
-            return null;
+            return oldFileName;
         }
 
         String fileName = parts[1];
@@ -88,7 +91,7 @@ public class Main {
             System.out.println("File error: " + e.getMessage());
         }
 
-        return null;
+        return oldFileName;
     }
 
     private static void handleSaveCommand(Spreadsheet sheet, String currentFileName) {
@@ -105,12 +108,12 @@ public class Main {
         }
     }
 
-    private static String handleSaveAsCommand(Spreadsheet sheet, String commandLine) {
+    private static String handleSaveAsCommand(Spreadsheet sheet, String commandLine, String oldFileName) {
         String[] parts = commandLine.split("\\s+", 3);
 
         if (parts.length < 3) {
             System.out.println("Invalid save as command. Example: save as output.txt");
-            return null;
+            return oldFileName;
         }
 
         String fileName = parts[2];
@@ -121,7 +124,7 @@ public class Main {
             return fileName;
         } catch (IOException e) {
             System.out.println("Save as error: " + e.getMessage());
-            return null;
+            return oldFileName;
         }
     }
 
@@ -150,6 +153,26 @@ public class Main {
         }
     }
 
+    private static void handleRawCommand(Spreadsheet sheet, String commandLine) {
+        // Expected format: raw row column
+        String[] parts = commandLine.split("\\s+");
+
+        if (parts.length != 3) {
+            System.out.println("Invalid raw command. Example: raw 1 2");
+            return;
+        }
+
+        try {
+            int row = Integer.parseInt(parts[1]);
+            int col = Integer.parseInt(parts[2]);
+
+            System.out.println(sheet.getCellRawContent(row, col));
+
+        } catch (NumberFormatException e) {
+            System.out.println("Row and column must be valid numbers.");
+        }
+    }
+
     private static void printHelp() {
         System.out.println("Available commands:");
         System.out.println("open filename.txt       - Opens a file");
@@ -158,6 +181,7 @@ public class Main {
         System.out.println("save as filename.txt    - Saves the table into a new file");
         System.out.println("print                   - Displays the table");
         System.out.println("edit row col value      - Changes a cell value");
+        System.out.println("raw row col             - Shows original cell content");
         System.out.println("help                    - Shows available commands");
         System.out.println("exit                    - Closes the program");
         System.out.println();
@@ -167,6 +191,7 @@ public class Main {
         System.out.println("edit 1 2 100");
         System.out.println("edit 2 3 \"Hello\"");
         System.out.println("edit 3 1 =R1C1+R1C2");
+        System.out.println("raw 3 1");
         System.out.println("save");
         System.out.println("save as output.txt");
     }

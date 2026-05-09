@@ -35,11 +35,11 @@ public class Spreadsheet {
     private List<Cell> parseLine(String line, int rowNumber) throws InvalidCellException {
         List<Cell> row = new ArrayList<>();
 
-        // Keeps trailing empty cells
-        String[] parts = line.split(",", -1);
+        // Splits line by commas, but ignores commas inside quoted strings
+        List<String> parts = splitLineRespectingQuotes(line);
 
-        for (int col = 0; col < parts.length; col++) {
-            String token = parts[col];
+        for (int col = 0; col < parts.size(); col++) {
+            String token = parts.get(col);
 
             try {
                 Cell cell = CellFactory.createCell(token);
@@ -52,6 +52,46 @@ public class Spreadsheet {
         }
 
         return row;
+    }
+
+    private List<String> splitLineRespectingQuotes(String line) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+
+        boolean insideQuotes = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+
+            if (escaped) {
+                current.append(ch);
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\') {
+                current.append(ch);
+                escaped = true;
+                continue;
+            }
+
+            if (ch == '"') {
+                insideQuotes = !insideQuotes;
+                current.append(ch);
+                continue;
+            }
+
+            if (ch == ',' && !insideQuotes) {
+                parts.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(ch);
+            }
+        }
+
+        parts.add(current.toString());
+        return parts;
     }
 
     public void saveToFile(String fileName) throws IOException {
@@ -106,6 +146,7 @@ public class Spreadsheet {
                     System.out.print(" | ");
                 }
             }
+
             System.out.println();
         }
     }
@@ -151,7 +192,6 @@ public class Spreadsheet {
         return targetRow.get(colIndex);
     }
 
-    // Returns the original raw content of a cell
     public String getCellRawContent(int row, int col) {
         Cell cell = getCell(row, col);
         return cell.getRawContent();
