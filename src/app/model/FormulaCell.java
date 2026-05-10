@@ -17,13 +17,11 @@ public class FormulaCell extends Cell {
         try {
             double result = evaluate(sheet, new HashSet<>());
 
-            // Show whole numbers without decimal part
             if (result == (long) result) {
                 return String.valueOf((long) result);
             }
 
             return String.valueOf(result);
-
         } catch (EvaluationException e) {
             return "ERROR";
         }
@@ -45,17 +43,18 @@ public class FormulaCell extends Cell {
         double result = parser.parseExpression();
 
         parser.skipSpaces();
-        if (!parser.isAtEnd()) {
-            throw new EvaluationException("Unexpected character in formula");
+
+        if (!parser.isAtEndRaw()) {
+            throw new EvaluationException("Unexpected character");
         }
 
         return result;
     }
 
     private class Parser {
-        private String expression;
-        private Spreadsheet sheet;
-        private Set<String> visited;
+        private final String expression;
+        private final Spreadsheet sheet;
+        private final Set<String> visited;
         private int position;
 
         public Parser(String expression, Spreadsheet sheet, Set<String> visited) {
@@ -109,7 +108,7 @@ public class FormulaCell extends Cell {
             return value;
         }
 
-        // Handles ^
+        // Handles exponentiation
         private double parsePower() throws EvaluationException {
             double value = parseUnary();
 
@@ -138,7 +137,7 @@ public class FormulaCell extends Cell {
             return parsePrimary();
         }
 
-        // Handles numbers, cell references, and parentheses
+        // Handles numbers, references, and parentheses
         private double parsePrimary() throws EvaluationException {
             skipSpaces();
 
@@ -176,8 +175,10 @@ public class FormulaCell extends Cell {
                     if (hasDot) {
                         throw new EvaluationException("Invalid number");
                     }
+
                     hasDot = true;
                 }
+
                 position++;
             }
 
@@ -196,7 +197,7 @@ public class FormulaCell extends Cell {
             int start = position;
 
             if (!match('R')) {
-                throw new EvaluationException("Invalid cell reference");
+                throw new EvaluationException("Invalid reference");
             }
 
             int rowStart = position;
@@ -206,11 +207,11 @@ public class FormulaCell extends Cell {
             }
 
             if (rowStart == position) {
-                throw new EvaluationException("Invalid row number");
+                throw new EvaluationException("Missing row number");
             }
 
             if (!match('C')) {
-                throw new EvaluationException("Invalid cell reference");
+                throw new EvaluationException("Invalid reference");
             }
 
             int colStart = position;
@@ -220,7 +221,7 @@ public class FormulaCell extends Cell {
             }
 
             if (colStart == position) {
-                throw new EvaluationException("Invalid column number");
+                throw new EvaluationException("Missing column number");
             }
 
             String reference = expression.substring(start, position);
@@ -268,16 +269,10 @@ public class FormulaCell extends Cell {
             return expression.charAt(position);
         }
 
-        // Skips spaces without calling isAtEnd()
         private void skipSpaces() {
             while (!isAtEndRaw() && Character.isWhitespace(expression.charAt(position))) {
                 position++;
             }
-        }
-
-        public boolean isAtEnd() {
-            skipSpaces();
-            return position >= expression.length();
         }
 
         private boolean isAtEndRaw() {
